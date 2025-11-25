@@ -11,11 +11,12 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 
 let gridLayer = null;
 
+
 // ---------------------------------------------
 // Load grids.geojson
 // ---------------------------------------------
 fetch("grids.geojson")
-  .then(r => r.json())
+  .then(resp => resp.json())
   .then(geojson => {
     console.log("Grids loaded:", geojson);
 
@@ -23,8 +24,9 @@ fetch("grids.geojson")
       style: {
         color: "#555",
         weight: 1,
-        fillOpacity: 0.6
-      }
+        fillOpacity: 0.4
+      },
+      onEachFeature: onEachFeature  // safe popup
     }).addTo(map);
 
     startFirebaseListener();
@@ -33,18 +35,42 @@ fetch("grids.geojson")
 
 
 // ---------------------------------------------
+// Safe popup function
+// ---------------------------------------------
+function onEachFeature(feature, layer) {
+  const props = feature.properties;
+
+  const temp = (typeof props.avg_temp === "number" && !isNaN(props.avg_temp))
+      ? props.avg_temp.toFixed(2)
+      : "No data";
+
+  const count = (typeof props.count === "number")
+      ? props.count
+      : 0;
+
+  layer.bindPopup(
+    `<b>Cell ID:</b> ${props.cell_id}<br>
+     <b>Avg Temp:</b> ${temp}<br>
+     <b>Readings:</b> ${count}`
+  );
+}
+
+
+// ---------------------------------------------
 // Firebase listener for fused data
 // ---------------------------------------------
 function startFirebaseListener() {
+  console.log("Firebase listener started");
+
   const ref = firebase.database().ref("FusedData/BMP180");
 
   ref.on("value", snapshot => {
-    const data = snapshot.val();
-    console.log("Firebase fused data:", data);
+    const fused = snapshot.val();
+    console.log("Fused data:", fused);
 
-    if (!data) return;
+    if (!fused) return;
 
-    applyFusedDataToGrid(data);
+    applyFusedDataToGrid(fused);
   });
 }
 
@@ -53,16 +79,27 @@ function startFirebaseListener() {
 // Apply fused temperatures to the grid
 // ---------------------------------------------
 function applyFusedDataToGrid(fused) {
+  console.log("Applying fused data to grid...");
+
   gridLayer.eachLayer(layer => {
     const cellId = layer.feature.properties.cell_id;
     const info = fused[cellId];
 
-    if (!info || info.avg_temp == null) {
+    // No data?
+    if (!info || typeof info.avg_temp !== "number" || isNaN(info.avg_temp)) {
       layer.setStyle({ fillColor: "#00000000", fillOpacity: 0 });
+      layer.feature.properties.avg_temp = null;
+      layer.feature.properties.count = 0;
       return;
     }
 
+    // Valid temp
     const temp = info.avg_temp;
+    const count = info.count ?? 0;
+
+    // Save into feature properties for popup
+    layer.feature.properties.avg_temp = temp;
+    layer.feature.properties.count = count;
 
     const color = tempToColor(temp);
 
@@ -70,12 +107,6 @@ function applyFusedDataToGrid(fused) {
       fillColor: color,
       fillOpacity: 0.7
     });
-
-    layer.bindPopup(
-      `<b>Cell ID:</b> ${cellId}<br>
-       <b>Avg Temp:</b> ${temp.toFixed(2)} °C<br>
-       <b>Readings:</b> ${info.count}`
-    );
   });
 }
 
@@ -84,8 +115,12 @@ function applyFusedDataToGrid(fused) {
 // Temperature → colour
 // ---------------------------------------------
 function tempToColor(t) {
-  let ratio = Math.min(Math.max((t - 0) / 20, 0), 1);
-  let r = Math.floor(255 * ratio);
-  let b = Math.floor(255 * (1 - ratio));
+  if (typeof t !== "number" || isNaN(t)) {
+    return "#00000000"; // transparent
+  }
+
+  const ratio = Math.min(Math.max((t - 0) / 20, 0), 1);
+  const r = Math.floor(255 * ratio);
+  const b = Math.floor(255 * (1 - ratio));
   return `rgb(${r},0,${b})`;
 }
