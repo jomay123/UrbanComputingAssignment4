@@ -1,37 +1,33 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Ireland Temperature Map</title>
+  <meta charset="utf-8" />
+  <title>Ireland Sensor Map</title>
 
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet"
-          href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRli+SI="
-          crossorigin=""/>
+  <!-- Leaflet CSS (NO integrity attribute!) -->
+  <link rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
-    <style>
-        #map {
-            height: 100vh;
-            width: 100%;
-        }
-    </style>
+  <style>
+    #map {
+      height: 100vh;
+      width: 100vw;
+    }
+  </style>
 </head>
-
 <body>
 
 <div id="map"></div>
 
-<!-- Leaflet JS -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha256-20nQCchB9co0qIjJZRGuk2JzNKv7z8GkDq5p3lJyykE="
-        crossorigin=""></script>
+<!-- Leaflet JS (NO integrity attribute!) -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<!-- Firebase (v8 CDN compatible with vanilla JS) -->
+<!-- Firebase v8 (non-module, works on GitHub Pages) -->
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
-<!-- Your Firebase Config -->
 <script>
+// Your Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyDvsN9YeemUvTD1fXBMnX5xCbXR3j5mFps",
   authDomain: "urbancomputing-4a6fb.firebaseapp.com",
@@ -44,9 +40,10 @@ const firebaseConfig = {
 };
 
 firebase.initializeApp(firebaseConfig);
+console.log("Firebase loaded");
 </script>
 
-<!-- Your Map Logic -->
+<!-- Load the mapping script -->
 <script src="map.js"></script>
 
 </body>
