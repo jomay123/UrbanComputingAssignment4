@@ -1,28 +1,52 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="utf-8" />
-    <title>Ireland Sensor Map</title>
-    <link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet" />
+    <title>Ireland Temperature Map</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet"
+          href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRli+SI="
+          crossorigin=""/>
+
     <style>
-        #map { height: 100vh; width: 100%; }
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
     </style>
 </head>
 
 <body>
+
 <div id="map"></div>
 
-<!-- Leaflet -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2JzNKv7z8GkDq5p3lJyykE="
+        crossorigin=""></script>
 
-<!-- Firebase SDK -->
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js"></script>
+<!-- Firebase (v8 CDN compatible with vanilla JS) -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
-<!-- Config -->
-<script src="firebase-config.js"></script>
+<!-- Your Firebase Config -->
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyDvsN9YeemUvTD1fXBMnX5xCbXR3j5mFps",
+  authDomain: "urbancomputing-4a6fb.firebaseapp.com",
+  databaseURL: "https://urbancomputing-4a6fb-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "urbancomputing-4a6fb",
+  storageBucket: "urbancomputing-4a6fb.firebasestorage.app",
+  messagingSenderId: "551885169659",
+  appId: "1:551885169659:web:6c27f1eddbc7c4ab63a15e",
+  measurementId: "G-E56MZNTFQZ"
+};
 
-<!-- Main map logic -->
+firebase.initializeApp(firebaseConfig);
+</script>
+
+<!-- Your Map Logic -->
 <script src="map.js"></script>
 
 </body>

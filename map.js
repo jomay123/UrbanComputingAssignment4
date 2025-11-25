@@ -1,78 +1,77 @@
-// --------------------------------------------
-// 1. Init map
-// --------------------------------------------
-const map = L.map("map").setView([53.4, -7.8], 6);
+console.log("map.js loaded");
+
+// --------------------------------------------------
+// 1. Create Map
+// --------------------------------------------------
+const map = L.map("map").setView([53.5, -8.0], 6);
 
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    attribution: "&copy; OpenStreetMap contributors"
+    maxZoom: 18
 }).addTo(map);
 
-// Will store polygons keyed by cell_id
-const gridLayers = {};
-
-// Colour scale
-function tempToColor(temp) {
-    if (temp === null || temp === undefined) return "#00000000";
-    const ratio = Math.min(Math.max(temp / 20, 0), 1);
-    const r = Math.floor(255 * ratio);
-    const b = Math.floor(255 * (1 - ratio));
-    return `rgb(${r},0,${b})`;
-}
-
-// --------------------------------------------
-// 2. Load grid.geojson
-// --------------------------------------------
+// --------------------------------------------------
+// 2. Load grids.geojson
+// --------------------------------------------------
 fetch("grids.geojson")
-    .then(res => res.json())
-    .then(geojson => {
+    .then(res => {
+        if (!res.ok) throw new Error("Failed to load grids.geojson");
+        return res.json();
+    })
+    .then(gridData => {
+        console.log("Grids loaded:", gridData);
 
-        // Create polygons
-        L.geoJSON(geojson, {
-            style: {
-                weight: 1,
-                color: "#555",
-                fillOpacity: 0.7
-            },
-            onEachFeature: function (feature, layer) {
-                const id = feature.properties.cell_id;
-                gridLayers[id] = layer; // store layer
+        // --------------------------------------------------
+        // 3. Load fused data from Firebase
+        // --------------------------------------------------
+        firebase.database()
+            .ref("FusedData/BMP180")
+            .once("value")
+            .then(snapshot => {
+                const fused = snapshot.val() || {};
+                console.log("Fused data:", fused);
 
-                layer.bindTooltip(`Cell ${id}<br>No data`);
-            }
-        }).addTo(map);
+                // Colour scale
+                function tempToColor(temp) {
+                    if (temp === null || temp === undefined) return "#00000000";
+                    const ratio = Math.max(0, Math.min(temp / 20, 1));
+                    const r = Math.floor(255 * ratio);
+                    const b = Math.floor(255 * (1 - ratio));
+                    return `rgb(${r},0,${b})`;
+                }
 
-        // When grid loaded, start listening for Firebase data
-        startFirebaseListener();
-    });
+                // Grid Layer
+                L.geoJSON(gridData, {
+                    style: feature => {
+                        const id = feature.properties.cell_id;
+                        const entry = fused[id];
 
-// --------------------------------------------
-// 3. Listen for Firebase changes
-// --------------------------------------------
-function startFirebaseListener() {
+                        const temp = entry ? entry.avg_temp : null;
+                        const color = tempToColor(temp);
 
-    dbRef.on("value", snapshot => {
-        const fusedData = snapshot.val();  // list of entries
+                        return {
+                            color: "#444",
+                            weight: 1,
+                            fillColor: color,
+                            fillOpacity: temp ? 0.7 : 0
+                        };
+                    },
+                    onEachFeature: (feature, layer) => {
+                        const id = feature.properties.cell_id;
+                        const entry = fused[id];
 
-        if (!fusedData) return;
+                        if (entry) {
+                            layer.bindPopup(`
+                                <b>Grid ID:</b> ${id}<br>
+                                <b>Avg Temp:</b> ${entry.avg_temp.toFixed(2)} °C<br>
+                                <b>Readings:</b> ${entry.count}<br>
+                                <b>Updated:</b> ${entry.timestamp}
+                            `);
+                        } else {
+                            layer.bindPopup(`<b>Grid ID:</b> ${id}<br>No data`);
+                        }
+                    }
+                }).addTo(map);
 
-        fusedData.forEach((entry, cell_id) => {
-            if (!entry || entry.avg_temp === null) return;
-
-            const layer = gridLayers[cell_id];
-            if (!layer) return;
-
-            // Update polygon color
-            const color = tempToColor(entry.avg_temp);
-            layer.setStyle({ fillColor: color });
-
-            // Update tooltip
-            layer.bindTooltip(
-                `<b>Average Temp:</b> ${entry.avg_temp.toFixed(2)}°C<br>` +
-                `<b>Count:</b> ${entry.count}<br>` +
-                `<b>Time:</b> ${entry.timestamp}`
-            );
-        });
-
-        console.log("UI updated with latest fused data.");
-    });
-}
+            });
+    })
+    .catch(err => console.error("Error:", err));
