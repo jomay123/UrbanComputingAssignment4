@@ -96,7 +96,8 @@ function applyFusedDataToGrid(fused) {
 
   gridLayer.eachLayer(layer => {
     const cellId = layer.feature.properties.cell_id;
-    const info = fused[cellId];
+    const info = fused["cell_" + cellId];
+
 
     if (!info || typeof info.avg_temp !== "number" || isNaN(info.avg_temp)) {
       // No data present
