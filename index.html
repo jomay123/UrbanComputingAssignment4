@@ -19,15 +19,15 @@
 
 <div id="map"></div>
 
-<!-- Leaflet JS (NO integrity attribute!) -->
+<!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<!-- Firebase v8 (non-module, works on GitHub Pages) -->
+<!-- Firebase v8 (safe for GitHub Pages — non-module) -->
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
 <script>
-// Your Firebase config
+// Firebase Config
 const firebaseConfig = {
   apiKey: "AIzaSyDvsN9YeemUvTD1fXBMnX5xCbXR3j5mFps",
   authDomain: "urbancomputing-4a6fb.firebaseapp.com",
@@ -39,11 +39,12 @@ const firebaseConfig = {
   measurementId: "G-E56MZNTFQZ"
 };
 
+// Init Firebase
 firebase.initializeApp(firebaseConfig);
 console.log("Firebase loaded");
 </script>
 
-<!-- Load the mapping script -->
+<!-- Custom JS -->
 <script src="map.js"></script>
 
 </body>
