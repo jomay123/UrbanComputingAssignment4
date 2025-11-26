@@ -2,17 +2,30 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Ireland Sensor Map</title>
+  <title>Ireland Sensor Maps</title>
 
   <link rel="stylesheet"
         href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
   <style>
-    #map { height: 100vh; width: 100vw; }
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #map-temp, #map-pressure {
+      height: 50vh;
+      width: 100vw;
+    }
 
     #controls {
       position: absolute;
-      top: 10px;
+      bottom: 10px;
       left: 10px;
       z-index: 1000;
       background: white;
@@ -20,20 +33,16 @@
       border-radius: 6px;
       box-shadow: 0 0 4px rgba(0,0,0,0.3);
     }
-
-    #controls button {
-      margin: 3px;
-    }
   </style>
 </head>
 <body>
 
 <div id="controls">
-  <button onclick="setMetric('temp')">Temperature</button>
-  <button onclick="setMetric('pressure')">Pressure</button>
+  <b>Maps:</b> Temperature (top) & Pressure (bottom)
 </div>
 
-<div id="map"></div>
+<div id="map-temp"></div>
+<div id="map-pressure"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -41,6 +50,7 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
 <script>
+// Firebase Config
 const firebaseConfig = {
   apiKey: "AIzaSyDvsN9YeemUvTD1fXBMnX5xCbXR3j5mFps",
   authDomain: "urbancomputing-4a6fb.firebaseapp.com",

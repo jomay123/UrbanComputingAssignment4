@@ -1,140 +1,183 @@
 console.log("map.js loaded");
 
-let currentMetric = "temp"; // "temp" or "pressure"
-
-const map = L.map("map").setView([53.5, -8.0], 7);
+// ------------------------------------------------------
+// CREATE TWO SEPARATE MAPS
+// ------------------------------------------------------
+const mapTemp = L.map("map-temp").setView([53.5, -8.0], 7);
+const mapPressure = L.map("map-pressure").setView([53.5, -8.0], 7);
 
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 18,
-}).addTo(map);
+  maxZoom: 18
+}).addTo(mapTemp);
 
-let gridLayer = null;
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 18
+}).addTo(mapPressure);
+
+let gridTempLayer = null;
+let gridPressureLayer = null;
+
 let fusedCache = null;
 
-// ---------------------------------------------
-// Load grid
-// ---------------------------------------------
+
+// ------------------------------------------------------
+// LOAD GRID GEOJSON ONCE — CLONE IT FOR BOTH MAPS
+// ------------------------------------------------------
 fetch("grids.geojson")
   .then(r => r.json())
   .then(geojson => {
-    gridLayer = L.geoJSON(geojson, {
-      style: {
-        color: "#555",
-        weight: 1,
-        fillOpacity: 0.3
-      },
-      onEachFeature: attachPopup
-    }).addTo(map);
+    // Temperature map layer
+    gridTempLayer = L.geoJSON(JSON.parse(JSON.stringify(geojson)), {
+      style: tempStyleEmpty,
+      onEachFeature: attachPopupTemp
+    }).addTo(mapTemp);
+
+    // Pressure map layer
+    gridPressureLayer = L.geoJSON(JSON.parse(JSON.stringify(geojson)), {
+      style: pressureStyleEmpty,
+      onEachFeature: attachPopupPressure
+    }).addTo(mapPressure);
 
     if (fusedCache) {
-      applyFusedToGrid(fusedCache);
+      applyFusedToTemp(fusedCache);
+      applyFusedToPressure(fusedCache);
     }
 
     startFirebaseListener();
   });
 
-// ---------------------------------------------
-// Popups
-// ---------------------------------------------
-function attachPopup(feature, layer) {
-  const c = feature.properties;
+
+// ------------------------------------------------------
+// EMPTY MAP STYLES
+// ------------------------------------------------------
+function tempStyleEmpty() {
+  return { fillColor: "#00000000", fillOpacity: 0.0, color: "#333", weight: 1 };
+}
+
+function pressureStyleEmpty() {
+  return { fillColor: "#00000000", fillOpacity: 0.0, color: "#333", weight: 1 };
+}
+
+
+// ------------------------------------------------------
+// POPUPS
+// ------------------------------------------------------
+function attachPopupTemp(feature, layer) {
+  const p = feature.properties;
 
   layer.bindPopup(`
-    <b>Cell ID:</b> ${c.cell_id}<br>
-    <b>Avg Temp:</b> ${c.avg_temp ?? "No data"}<br>
-    <b>Avg Pressure:</b> ${c.avg_pressure ?? "No data"}<br>
-    <b>Temp Count:</b> ${c.count_temp ?? 0}<br>
-    <b>Pressure Count:</b> ${c.count_pressure ?? 0}
+    <b>Cell:</b> ${p.cell_id}<br>
+    <b>Temp:</b> ${p.avg_temp ?? "No data"} °C<br>
+    <b>Count:</b> ${p.count_temp ?? 0}
   `);
 }
 
-// ---------------------------------------------
-// Firebase Listener
-// ---------------------------------------------
-function startFirebaseListener() {
-  const ref = firebase.database().ref("FusedData/BMP180");
+function attachPopupPressure(feature, layer) {
+  const p = feature.properties;
 
-  ref.on("value", snap => {
+  layer.bindPopup(`
+    <b>Cell:</b> ${p.cell_id}<br>
+    <b>Pressure:</b> ${p.avg_pressure ?? "No data"} hPa<br>
+    <b>Count:</b> ${p.count_pressure ?? 0}
+  `);
+}
+
+
+// ------------------------------------------------------
+// FIREBASE LISTENER
+// ------------------------------------------------------
+function startFirebaseListener() {
+  firebase.database().ref("FusedData/BMP180").on("value", snap => {
     const fused = snap.val();
     if (!fused) return;
 
-    if (!gridLayer) {
-      fusedCache = fused;
-      return;
-    }
+    fusedCache = fused;
 
-    applyFusedToGrid(fused);
+    applyFusedToTemp(fused);
+    applyFusedToPressure(fused);
   });
 }
 
-// ---------------------------------------------
-// Apply fused data
-// ---------------------------------------------
-function applyFusedToGrid(fused) {
-  gridLayer.eachLayer(layer => {
-    const cellId = layer.feature.properties.cell_id;
-    const info = fused["cell_" + cellId];
 
+// ------------------------------------------------------
+// APPLY TO TEMPERATURE MAP
+// ------------------------------------------------------
+function applyFusedToTemp(fused) {
+  if (!gridTempLayer) return;
+
+  gridTempLayer.eachLayer(layer => {
+    const cid = layer.feature.properties.cell_id;
+    const info = fused["cell_" + cid];
     if (!info) {
-      layer.setStyle({ fillColor: "#00000000", fillOpacity: 0 });
+      layer.setStyle(tempStyleEmpty());
       return;
     }
+
+    const temp = info.avg_temp;
 
     layer.feature.properties.avg_temp = info.avg_temp;
-    layer.feature.properties.avg_pressure = info.avg_pressure;
     layer.feature.properties.count_temp = info.count_temp;
-    layer.feature.properties.count_pressure = info.count_pressure;
 
-    const val = currentMetric === "temp" ? info.avg_temp : info.avg_pressure;
-    const color = valueToColor(val, currentMetric);
+    const c = tempToColor(temp);
 
     layer.setStyle({
-      fillColor: color,
-      fillOpacity: val ? 0.8 : 0
+      fillColor: c,
+      fillOpacity: temp != null ? 0.4 : 0
     });
 
-    layer.bindPopup(`
-      <b>Cell ID:</b> ${cellId}<br>
-      <b>Avg Temp:</b> ${info.avg_temp ?? "No data"}<br>
-      <b>Avg Pressure:</b> ${info.avg_pressure ?? "No data"}<br>
-      <b>Temp Count:</b> ${info.count_temp}<br>
-      <b>Pressure Count:</b> ${info.count_pressure}
-    `);
+    attachPopupTemp(layer.feature, layer);
   });
 }
 
-// ---------------------------------------------
-// Metric toggle
-// ---------------------------------------------
-function setMetric(metric) {
-  currentMetric = metric;
-  if (fusedCache) applyFusedToGrid(fusedCache);
+
+// ------------------------------------------------------
+// APPLY TO PRESSURE MAP
+// ------------------------------------------------------
+function applyFusedToPressure(fused) {
+  if (!gridPressureLayer) return;
+
+  gridPressureLayer.eachLayer(layer => {
+    const cid = layer.feature.properties.cell_id;
+    const info = fused["cell_" + cid];
+    if (!info) {
+      layer.setStyle(pressureStyleEmpty());
+      return;
+    }
+
+    const pressure = info.avg_pressure;
+
+    layer.feature.properties.avg_pressure = info.avg_pressure;
+    layer.feature.properties.count_pressure = info.count_pressure;
+
+    const c = pressureToColor(pressure);
+
+    layer.setStyle({
+      fillColor: c,
+      fillOpacity: pressure != null ? 0.4 : 0
+    });
+
+    attachPopupPressure(layer.feature, layer);
+  });
 }
 
-// ---------------------------------------------
-// Coloring
-// ---------------------------------------------
-function valueToColor(v, metric) {
-  if (typeof v !== "number" || isNaN(v)) return "#00000000";
 
-  if (metric === "temp") {
-    // 0°C → blue, 20°C → red
-    const ratio = Math.min(Math.max((v - 0) / 20, 0), 1);
-    const r = Math.floor(255 * ratio);
-    const b = Math.floor(255 * (1 - ratio));
-    return `rgb(${r},0,${b})`;
-  }
+// ------------------------------------------------------
+// COLOUR FUNCTIONS
+// ------------------------------------------------------
+function tempToColor(t) {
+  if (typeof t !== "number") return "#00000000";
+  const ratio = Math.min(Math.max((t - 0) / 20, 0), 1);
+  const r = Math.floor(255 * ratio);
+  const b = Math.floor(255 * (1 - ratio));
+  return `rgb(${r},0,${b})`;
+}
 
-  if (metric === "pressure") {
-    // Normal pressure range 950–1050 hPa
-    const minP = 950;
-    const maxP = 1050;
-    const ratio = Math.min(Math.max((v - minP) / (maxP - minP), 0), 1);
-
-    const g = Math.floor(255 * ratio);
-    const b = Math.floor(255 * (1 - ratio));
-    return `rgb(0,${g},${b})`;
-  }
-
-  return "#00000000";
+function pressureToColor(p) {
+  if (typeof p !== "number") return "#00000000";
+  const minP = 950;
+  const maxP = 1050;
+  const ratio = Math.min(Math.max((p - minP) / (maxP - minP), 0), 1);
+  const g = Math.floor(255 * ratio);
+  const b = Math.floor(255 * (1 - ratio));
+  return `rgb(0,${g},${b})`;
 }
