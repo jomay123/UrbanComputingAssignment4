@@ -4,30 +4,43 @@
   <meta charset="utf-8" />
   <title>Ireland Sensor Map</title>
 
-  <!-- Leaflet CSS (NO integrity attribute!) -->
   <link rel="stylesheet"
         href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
   <style>
-    #map {
-      height: 100vh;
-      width: 100vw;
+    #map { height: 100vh; width: 100vw; }
+
+    #controls {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 1000;
+      background: white;
+      padding: 6px;
+      border-radius: 6px;
+      box-shadow: 0 0 4px rgba(0,0,0,0.3);
+    }
+
+    #controls button {
+      margin: 3px;
     }
   </style>
 </head>
 <body>
 
+<div id="controls">
+  <button onclick="setMetric('temp')">Temperature</button>
+  <button onclick="setMetric('pressure')">Pressure</button>
+</div>
+
 <div id="map"></div>
 
-<!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<!-- Firebase v8 (safe for GitHub Pages — non-module) -->
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
 <script>
-// Firebase Config
 const firebaseConfig = {
   apiKey: "AIzaSyDvsN9YeemUvTD1fXBMnX5xCbXR3j5mFps",
   authDomain: "urbancomputing-4a6fb.firebaseapp.com",
@@ -38,13 +51,9 @@ const firebaseConfig = {
   appId: "1:551885169659:web:6c27f1eddbc7c4ab63a15e",
   measurementId: "G-E56MZNTFQZ"
 };
-
-// Init Firebase
 firebase.initializeApp(firebaseConfig);
-console.log("Firebase loaded");
 </script>
 
-<!-- Custom JS -->
 <script src="map.js"></script>
 
 </body>
