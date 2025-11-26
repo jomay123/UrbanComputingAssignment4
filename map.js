@@ -116,8 +116,8 @@ function applyFusedDataToGrid(fused) {
     const count = info.count ?? 0;
 
     // Update properties so popup shows correct values
-    layer.feature.properties.avg_temp = temp;
-    layer.feature.properties.count = count;
+    layer.feature.properties.avg_temp = info.avg_temp;
+    layer.feature.properties.count = info.count;
 
     const color = tempToColor(temp);
 
