@@ -1,4 +1,3 @@
-document.addEventListener("DOMContentLoaded", function () {
 console.log("map.js loaded");
 
 // ------------------------------------------------------
@@ -212,7 +211,7 @@ function tempToColor(t) {
 
 function pressureToColor(p) {
   if (typeof p !== "number") return "#00000000";
-  const minP = 950, maxP = 1050;
+  const minP = 990, maxP = 1020;
   const ratio = Math.min(Math.max((p - minP) / (maxP - minP), 0), 1);
   return `rgb(0,${Math.floor(255 * ratio)},${Math.floor(255 * (1 - ratio))})`;
 }
@@ -248,5 +247,3 @@ function extractValue(info) {
 function baseEmptyStyle() {
   return { fillColor: "#00000000", fillOpacity: 0, color: "#333", weight: 1 };
 }
-
-});
