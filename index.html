@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Ireland Sensor Maps</title>
+  <title>Ireland Sensor Map</title>
 
   <link rel="stylesheet"
         href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -14,36 +14,71 @@
       height: 100%;
       width: 100%;
       overflow: hidden;
-      display: flex;
-      flex-direction: column;
+      position: relative;
+      font-family: Arial, sans-serif;
     }
 
-    #map-temp, #map-pressure {
-      height: 50vh;
+    #map {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100vh;
       width: 100vw;
     }
 
     #controls {
       position: absolute;
-      bottom: 10px;
-      left: 10px;
+      bottom: 20px;
+      left: 20px;
       z-index: 1000;
       background: white;
-      padding: 6px;
-      border-radius: 6px;
+      padding: 12px;
+      border-radius: 8px;
       box-shadow: 0 0 4px rgba(0,0,0,0.3);
+      width: 250px;
+    }
+
+    #controls label {
+      font-weight: bold;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    #controls select,
+    #controls input {
+      width: 100%;
+      margin-bottom: 10px;
+    }
+
+    #forecastBlock {
+      display: none;
     }
   </style>
 </head>
 <body>
 
+<div id="map"></div>
+
 <div id="controls">
-  <b>Maps:</b> Temperature (top) & Pressure (bottom)
+  <label>Data Source</label>
+  <select id="sourceSelect" onchange="onSourceChange()">
+    <option value="current">Current Sensors</option>
+    <option value="forecast">Forecast</option>
+  </select>
+
+  <label>Metric</label>
+  <select id="metricSelect" onchange="onMetricChange()">
+    <option value="temp">Temperature</option>
+    <option value="pressure">Pressure</option>
+  </select>
+
+  <div id="forecastBlock">
+    <label>Forecast Hour (+0 to +6)</label>
+    <input type="range" min="0" max="6" value="0" id="forecastSlider" oninput="onForecastChange()">
+    <div id="forecastLabel">Forecast +0h</div>
+  </div>
 </div>
 
-<!-- These MUST match the IDs used in map.js -->
-<div id="map-temp"></div>
-<div id="map-pressure"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 

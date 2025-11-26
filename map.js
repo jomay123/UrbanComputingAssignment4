@@ -1,183 +1,249 @@
 console.log("map.js loaded");
 
 // ------------------------------------------------------
-// CREATE TWO SEPARATE MAPS
+// GLOBAL STATE
 // ------------------------------------------------------
-const mapTemp = L.map("map-temp").setView([53.5, -8.0], 7);
-const mapPressure = L.map("map-pressure").setView([53.5, -8.0], 7);
 
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 18
-}).addTo(mapTemp);
+let currentSource = "current";   // "current" or "forecast"
+let currentMetric = "temp";      // "temp" or "pressure"
+let currentForecastHour = 0;     // 0..6
 
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 18
-}).addTo(mapPressure);
-
-let gridTempLayer = null;
-let gridPressureLayer = null;
-
-let fusedCache = null;
+let gridLayer = null;
+let grid = null;
+let fusedCurrent = null;
+let fusedForecast = {}; // keyed by hour
 
 
 // ------------------------------------------------------
-// LOAD GRID GEOJSON ONCE — CLONE IT FOR BOTH MAPS
+// LEAFLET MAP SETUP
 // ------------------------------------------------------
+
+const map = L.map("map").setView([53.5, -8.0], 7);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+
+
+// ------------------------------------------------------
+// LEGENDS
+// ------------------------------------------------------
+
+const tempLegend = L.control({ position: "bottomright" });
+tempLegend.onAdd = function () {
+  const div = L.DomUtil.create("div", "legend");
+  div.style.background = "white";
+  div.style.padding = "8px";
+  div.style.borderRadius = "6px";
+  div.innerHTML = `
+    <b>Temperature (°C)</b><br>
+    <i style="background: rgb(0,0,255); width:20px; height:10px; display:inline-block;"></i> 0°C<br>
+    <i style="background: rgb(255,0,0); width:20px; height:10px; display:inline-block;"></i> 20°C+
+  `;
+  return div;
+};
+
+const pressureLegend = L.control({ position: "bottomright" });
+pressureLegend.onAdd = function () {
+  const div = L.DomUtil.create("div", "legend");
+  div.style.background = "white";
+  div.style.padding = "8px";
+  div.style.borderRadius = "6px";
+  div.innerHTML = `
+    <b>Pressure (hPa)</b><br>
+    <i style="background: rgb(0,0,255); width:20px; height:10px; display:inline-block;"></i> 950<br>
+    <i style="background: rgb(0,255,0); width:20px; height:10px; display:inline-block;"></i> 1050+
+  `;
+  return div;
+};
+
+
+// ------------------------------------------------------
+// LOAD GRID
+// ------------------------------------------------------
+
 fetch("grids.geojson")
   .then(r => r.json())
   .then(geojson => {
-    // Temperature map layer
-    gridTempLayer = L.geoJSON(JSON.parse(JSON.stringify(geojson)), {
-      style: tempStyleEmpty,
-      onEachFeature: attachPopupTemp
-    }).addTo(mapTemp);
+    grid = geojson;
+    gridLayer = L.geoJSON(geojson, {
+      style: baseEmptyStyle,
+      onEachFeature: attachPopup
+    }).addTo(map);
 
-    // Pressure map layer
-    gridPressureLayer = L.geoJSON(JSON.parse(JSON.stringify(geojson)), {
-      style: pressureStyleEmpty,
-      onEachFeature: attachPopupPressure
-    }).addTo(mapPressure);
-
-    if (fusedCache) {
-      applyFusedToTemp(fusedCache);
-      applyFusedToPressure(fusedCache);
-    }
-
-    startFirebaseListener();
+    startCurrentListener();
+    startForecastListener();
   });
 
 
 // ------------------------------------------------------
-// EMPTY MAP STYLES
+// FIREBASE LISTENERS
 // ------------------------------------------------------
-function tempStyleEmpty() {
-  return { fillColor: "#00000000", fillOpacity: 0.0, color: "#333", weight: 1 };
+
+function startCurrentListener() {
+  firebase.database().ref("FusedData/BMP180")
+    .on("value", snap => {
+      fusedCurrent = snap.val();
+      if (currentSource === "current") refreshMap();
+    });
 }
 
-function pressureStyleEmpty() {
-  return { fillColor: "#00000000", fillOpacity: 0.0, color: "#333", weight: 1 };
+function startForecastListener() {
+  firebase.database().ref("FusedForecast")
+    .on("value", snap => {
+      const data = snap.val();
+      if (!data) return;
+
+      fusedForecast = data;
+      if (currentSource === "forecast") refreshMap();
+    });
+}
+
+
+// ------------------------------------------------------
+// UI EVENT HANDLERS
+// ------------------------------------------------------
+
+function onSourceChange() {
+  currentSource = document.getElementById("sourceSelect").value;
+
+  if (currentSource === "forecast") {
+    document.getElementById("forecastBlock").style.display = "block";
+  } else {
+    document.getElementById("forecastBlock").style.display = "none";
+  }
+
+  refreshMap();
+}
+
+function onMetricChange() {
+  currentMetric = document.getElementById("metricSelect").value;
+  refreshMap();
+}
+
+function onForecastChange() {
+  const slider = document.getElementById("forecastSlider");
+  currentForecastHour = Number(slider.value);
+  document.getElementById("forecastLabel").innerText =
+    `Forecast +${currentForecastHour}h`;
+
+  refreshMap();
+}
+
+
+// ------------------------------------------------------
+// MAP REFRESH
+// ------------------------------------------------------
+
+function refreshMap() {
+  if (!gridLayer) return;
+
+  gridLayer.eachLayer(layer => {
+    const id = layer.feature.properties.cell_id;
+
+    let info = null;
+
+    if (currentSource === "current") {
+      info = fusedCurrent?.[`cell_${id}`];
+    } else {
+      info = fusedForecast[currentForecastHour]?.[`cell_${id}`];
+    }
+
+    const val = extractValue(info);
+    const color = val != null ? metricToColor(val, currentMetric) : "#00000000";
+
+    layer.setStyle({
+      fillColor: color,
+      fillOpacity: val != null ? 0.8 : 0,
+      color: "#333",
+      weight: 1,
+      opacity: 0.1
+    });
+
+    updatePopup(layer, info);
+  });
+
+  updateLegend();
 }
 
 
 // ------------------------------------------------------
 // POPUPS
 // ------------------------------------------------------
-function attachPopupTemp(feature, layer) {
-  const p = feature.properties;
+
+function attachPopup(feature, layer) {
+  layer.bindPopup("Loading...");
+}
+
+function updatePopup(layer, info) {
+  const f = layer.feature.properties;
+
+  if (!info) {
+    layer.bindPopup(`
+      <b>Cell:</b> ${f.cell_id}<br>
+      <b>No data</b>
+    `);
+    return;
+  }
+
+  const temp = info.avg_temp ?? info.avg_temp_forecast;
+  const pres = info.avg_pressure ?? info.avg_pressure_forecast;
 
   layer.bindPopup(`
-    <b>Cell:</b> ${p.cell_id}<br>
-    <b>Temp:</b> ${p.avg_temp ?? "No data"} °C<br>
-    <b>Count:</b> ${p.count_temp ?? 0}
+    <b>Cell:</b> ${f.cell_id}<br>
+    <b>Temperature:</b> ${temp != null ? temp + " °C" : "No data"}<br>
+    <b>Pressure:</b> ${pres != null ? pres + " hPa" : "No data"}
   `);
 }
 
-function attachPopupPressure(feature, layer) {
-  const p = feature.properties;
 
-  layer.bindPopup(`
-    <b>Cell:</b> ${p.cell_id}<br>
-    <b>Pressure:</b> ${p.avg_pressure ?? "No data"} hPa<br>
-    <b>Count:</b> ${p.count_pressure ?? 0}
-  `);
+// ------------------------------------------------------
+// COLOUR SCALES
+// ------------------------------------------------------
+
+function metricToColor(v, metric) {
+  if (metric === "temp") return tempToColor(v);
+  else return pressureToColor(v);
 }
 
-
-// ------------------------------------------------------
-// FIREBASE LISTENER
-// ------------------------------------------------------
-function startFirebaseListener() {
-  firebase.database().ref("FusedData/BMP180").on("value", snap => {
-    const fused = snap.val();
-    if (!fused) return;
-
-    fusedCache = fused;
-
-    applyFusedToTemp(fused);
-    applyFusedToPressure(fused);
-  });
-}
-
-
-// ------------------------------------------------------
-// APPLY TO TEMPERATURE MAP
-// ------------------------------------------------------
-function applyFusedToTemp(fused) {
-  if (!gridTempLayer) return;
-
-  gridTempLayer.eachLayer(layer => {
-    const cid = layer.feature.properties.cell_id;
-    const info = fused["cell_" + cid];
-    if (!info) {
-      layer.setStyle(tempStyleEmpty());
-      return;
-    }
-
-    const temp = info.avg_temp;
-
-    layer.feature.properties.avg_temp = info.avg_temp;
-    layer.feature.properties.count_temp = info.count_temp;
-
-    const c = tempToColor(temp);
-
-    layer.setStyle({
-      fillColor: c,
-      fillOpacity: temp != null ? 0.4 : 0
-    });
-
-    attachPopupTemp(layer.feature, layer);
-  });
-}
-
-
-// ------------------------------------------------------
-// APPLY TO PRESSURE MAP
-// ------------------------------------------------------
-function applyFusedToPressure(fused) {
-  if (!gridPressureLayer) return;
-
-  gridPressureLayer.eachLayer(layer => {
-    const cid = layer.feature.properties.cell_id;
-    const info = fused["cell_" + cid];
-    if (!info) {
-      layer.setStyle(pressureStyleEmpty());
-      return;
-    }
-
-    const pressure = info.avg_pressure;
-
-    layer.feature.properties.avg_pressure = info.avg_pressure;
-    layer.feature.properties.count_pressure = info.count_pressure;
-
-    const c = pressureToColor(pressure);
-
-    layer.setStyle({
-      fillColor: c,
-      fillOpacity: pressure != null ? 0.4 : 0
-    });
-
-    attachPopupPressure(layer.feature, layer);
-  });
-}
-
-
-// ------------------------------------------------------
-// COLOUR FUNCTIONS
-// ------------------------------------------------------
 function tempToColor(t) {
   if (typeof t !== "number") return "#00000000";
   const ratio = Math.min(Math.max((t - 0) / 20, 0), 1);
-  const r = Math.floor(255 * ratio);
-  const b = Math.floor(255 * (1 - ratio));
-  return `rgb(${r},0,${b})`;
+  return `rgb(${Math.floor(255 * ratio)},0,${Math.floor(255 * (1 - ratio))})`;
 }
 
 function pressureToColor(p) {
   if (typeof p !== "number") return "#00000000";
-  const minP = 950;
-  const maxP = 1050;
+  const minP = 950, maxP = 1050;
   const ratio = Math.min(Math.max((p - minP) / (maxP - minP), 0), 1);
-  const g = Math.floor(255 * ratio);
-  const b = Math.floor(255 * (1 - ratio));
-  return `rgb(0,${g},${b})`;
+  return `rgb(0,${Math.floor(255 * ratio)},${Math.floor(255 * (1 - ratio))})`;
+}
+
+
+// ------------------------------------------------------
+// LEGEND SWITCHING
+// ------------------------------------------------------
+
+function updateLegend() {
+  map.removeControl(tempLegend);
+  map.removeControl(pressureLegend);
+
+  if (currentMetric === "temp") map.addControl(tempLegend);
+  else map.addControl(pressureLegend);
+}
+
+
+// ------------------------------------------------------
+// HELPERS
+// ------------------------------------------------------
+
+function extractValue(info) {
+  if (!info) return null;
+
+  if (currentMetric === "temp") {
+    return info.avg_temp ?? info.avg_temp_forecast;
+  } else {
+    return info.avg_pressure ?? info.avg_pressure_forecast;
+  }
+}
+
+function baseEmptyStyle() {
+  return { fillColor: "#00000000", fillOpacity: 0, color: "#333", weight: 1 };
 }
