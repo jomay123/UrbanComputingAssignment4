@@ -61,24 +61,23 @@
 
 <div id="controls">
   <label>Data Source</label>
-  <select id="sourceSelect" onchange="onSourceChange()">
+  <select id="sourceSelect">
     <option value="current">Current Sensors</option>
     <option value="forecast">Forecast</option>
   </select>
 
   <label>Metric</label>
-  <select id="metricSelect" onchange="onMetricChange()">
+  <select id="metricSelect">
     <option value="temp">Temperature</option>
     <option value="pressure">Pressure</option>
   </select>
 
   <div id="forecastBlock">
     <label>Forecast Hour (+0 to +6)</label>
-    <input type="range" min="0" max="6" value="0" id="forecastSlider" oninput="onForecastChange()">
+    <input type="range" min="0" max="6" value="0" id="forecastSlider">
     <div id="forecastLabel">Forecast +0h</div>
   </div>
 </div>
-
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -86,19 +85,20 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
 <script>
-const firebaseConfig = {
-  apiKey: "AIzaSyDvsN9YeemUvTD1fXBMnX5xCbXR3j5mFps",
-  authDomain: "urbancomputing-4a6fb.firebaseapp.com",
-  databaseURL: "https://urbancomputing-4a6fb-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "urbancomputing-4a6fb",
-  storageBucket: "urbancomputing-4a6fb.firebasestorage.app",
-  messagingSenderId: "551885169659",
-  appId: "1:551885169659:web:6c27f1eddbc7c4ab63a15e",
-  measurementId: "G-E56MZNTFQZ"
-};
-firebase.initializeApp(firebaseConfig);
+  const firebaseConfig = {
+    apiKey: "AIzaSyDvsN9YeemUvTD1fXBMnX5xCbXR3j5mFps",
+    authDomain: "urbancomputing-4a6fb.firebaseapp.com",
+    databaseURL: "https://urbancomputing-4a6fb-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "urbancomputing-4a6fb",
+    storageBucket: "urbancomputing-4a6fb.firebasestorage.app",
+    messagingSenderId: "551885169659",
+    appId: "1:551885169659:web:6c27f1eddbc7c4ab63a15e",
+    measurementId: "G-E56MZNTFQZ"
+  };
+  firebase.initializeApp(firebaseConfig);
 </script>
 
+<!-- IMPORTANT: Defer ensures DOM is loaded before running JS -->
 <script defer src="map.js"></script>
 
 </body>

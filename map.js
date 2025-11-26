@@ -4,18 +4,34 @@ console.log("map.js loaded");
 // GLOBAL STATE
 // ------------------------------------------------------
 
-let currentSource = "current";   // "current" or "forecast"
-let currentMetric = "temp";      // "temp" or "pressure"
-let currentForecastHour = 0;     // 0..6
+let currentSource = "current";
+let currentMetric = "temp";
+let currentForecastHour = 0;
 
 let gridLayer = null;
 let grid = null;
 let fusedCurrent = null;
-let fusedForecast = {}; // keyed by hour
+let fusedForecast = {};
 
 
 // ------------------------------------------------------
-// LEAFLET MAP SETUP
+// INITIALIZE AFTER DOM IS READY
+// ------------------------------------------------------
+
+document.addEventListener("DOMContentLoaded", () => {
+
+  // Attach UI listeners
+  document.getElementById("sourceSelect").addEventListener("change", onSourceChange);
+  document.getElementById("metricSelect").addEventListener("change", onMetricChange);
+  document.getElementById("forecastSlider").addEventListener("input", onForecastChange);
+
+  console.log("DOM fully loaded → initializing map");
+
+});
+
+
+// ------------------------------------------------------
+// LEAFLET MAP
 // ------------------------------------------------------
 
 const map = L.map("map").setView([53.5, -8.0], 7);
@@ -48,8 +64,8 @@ pressureLegend.onAdd = function () {
   div.style.borderRadius = "6px";
   div.innerHTML = `
     <b>Pressure (hPa)</b><br>
-    <i style="background: rgb(0,0,255); width:20px; height:10px; display:inline-block;"></i> 950<br>
-    <i style="background: rgb(0,255,0); width:20px; height:10px; display:inline-block;"></i> 1050+
+    <i style="background: rgb(0,0,255); width:20px; height:10px; display:inline-block;"></i> Low<br>
+    <i style="background: rgb(0,255,0); width:20px; height:10px; display:inline-block;"></i> High
   `;
   return div;
 };
@@ -63,6 +79,7 @@ fetch("grids.geojson")
   .then(r => r.json())
   .then(geojson => {
     grid = geojson;
+
     gridLayer = L.geoJSON(geojson, {
       style: baseEmptyStyle,
       onEachFeature: attachPopup
@@ -88,27 +105,21 @@ function startCurrentListener() {
 function startForecastListener() {
   firebase.database().ref("FusedForecast")
     .on("value", snap => {
-      const data = snap.val();
-      if (!data) return;
-
-      fusedForecast = data;
+      fusedForecast = snap.val() || {};
       if (currentSource === "forecast") refreshMap();
     });
 }
 
 
 // ------------------------------------------------------
-// UI EVENT HANDLERS
+// UI HANDLERS
 // ------------------------------------------------------
 
 function onSourceChange() {
   currentSource = document.getElementById("sourceSelect").value;
 
-  if (currentSource === "forecast") {
-    document.getElementById("forecastBlock").style.display = "block";
-  } else {
-    document.getElementById("forecastBlock").style.display = "none";
-  }
+  document.getElementById("forecastBlock").style.display =
+    currentSource === "forecast" ? "block" : "none";
 
   refreshMap();
 }
@@ -121,6 +132,7 @@ function onMetricChange() {
 function onForecastChange() {
   const slider = document.getElementById("forecastSlider");
   currentForecastHour = Number(slider.value);
+
   document.getElementById("forecastLabel").innerText =
     `Forecast +${currentForecastHour}h`;
 
@@ -153,8 +165,8 @@ function refreshMap() {
       fillColor: color,
       fillOpacity: val != null ? 0.8 : 0,
       color: "#333",
-      weight: 1,
-      opacity: 0.1
+      weight: 1.5,
+      opacity: 0.2
     });
 
     updatePopup(layer, info);
@@ -195,12 +207,11 @@ function updatePopup(layer, info) {
 
 
 // ------------------------------------------------------
-// COLOUR SCALES
+// COLOR SCALES
 // ------------------------------------------------------
 
 function metricToColor(v, metric) {
-  if (metric === "temp") return tempToColor(v);
-  else return pressureToColor(v);
+  return metric === "temp" ? tempToColor(v) : pressureToColor(v);
 }
 
 function tempToColor(t) {
@@ -218,7 +229,7 @@ function pressureToColor(p) {
 
 
 // ------------------------------------------------------
-// LEGEND SWITCHING
+// LEGENDS
 // ------------------------------------------------------
 
 function updateLegend() {
@@ -245,5 +256,5 @@ function extractValue(info) {
 }
 
 function baseEmptyStyle() {
-  return { fillColor: "#00000000", fillOpacity: 0, color: "#333", weight: 1 };
+  return { fillColor: "#00000000", fillOpacity: 0, color: "#333", weight: 1.5 };
 }
