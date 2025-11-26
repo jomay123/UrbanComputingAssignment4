@@ -1,3 +1,4 @@
+document.addEventListener("DOMContentLoaded", function () {
 console.log("map.js loaded");
 
 // ------------------------------------------------------
@@ -247,3 +248,5 @@ function extractValue(info) {
 function baseEmptyStyle() {
   return { fillColor: "#00000000", fillOpacity: 0, color: "#333", weight: 1 };
 }
+
+});
