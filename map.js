@@ -15,18 +15,13 @@ let fusedForecast = {};
 
 
 // ------------------------------------------------------
-// INITIALIZE AFTER DOM IS READY
+// DOM READY INITIALIZATION
 // ------------------------------------------------------
 
 document.addEventListener("DOMContentLoaded", () => {
-
-  // Attach UI listeners
   document.getElementById("sourceSelect").addEventListener("change", onSourceChange);
   document.getElementById("metricSelect").addEventListener("change", onMetricChange);
   document.getElementById("forecastSlider").addEventListener("input", onForecastChange);
-
-  console.log("DOM fully loaded → initializing map");
-
 });
 
 
@@ -39,8 +34,14 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
 
 // ------------------------------------------------------
-// LEGENDS
+// LEGENDS (continuous)
 // ------------------------------------------------------
+
+function makeLegendBar(gradientCSS) {
+  return `
+    <div class="legend-bar" style="background:${gradientCSS};"></div>
+  `;
+}
 
 const tempLegend = L.control({ position: "bottomright" });
 tempLegend.onAdd = function () {
@@ -50,8 +51,8 @@ tempLegend.onAdd = function () {
   div.style.borderRadius = "6px";
   div.innerHTML = `
     <b>Temperature (°C)</b><br>
-    <i style="background: rgb(0,0,255); width:20px; height:10px; display:inline-block;"></i> 0°C<br>
-    <i style="background: rgb(255,0,0); width:20px; height:10px; display:inline-block;"></i> 20°C+
+    ${makeLegendBar("linear-gradient(to right, blue, red)")}
+    <span>0°C</span> → <span>20°C+</span>
   `;
   return div;
 };
@@ -64,8 +65,8 @@ pressureLegend.onAdd = function () {
   div.style.borderRadius = "6px";
   div.innerHTML = `
     <b>Pressure (hPa)</b><br>
-    <i style="background: rgb(0,0,255); width:20px; height:10px; display:inline-block;"></i> Low<br>
-    <i style="background: rgb(0,255,0); width:20px; height:10px; display:inline-block;"></i> High
+    ${makeLegendBar("linear-gradient(to right, blue, green)")}
+    <span>Low (980hPa)</span> → <span>High (1020hPa)</span>
   `;
   return div;
 };
@@ -87,6 +88,7 @@ fetch("grids.geojson")
 
     startCurrentListener();
     startForecastListener();
+    startSensorStatusListener();
   });
 
 
@@ -107,6 +109,29 @@ function startForecastListener() {
     .on("value", snap => {
       fusedForecast = snap.val() || {};
       if (currentSource === "forecast") refreshMap();
+    });
+}
+
+function startSensorStatusListener() {
+  firebase.database().ref("SensorStatus")
+    .on("value", snap => {
+      const data = snap.val() || {};
+
+      let active = 0, slow = 0, inactive = 0;
+      let readings = 0;
+
+      Object.values(data).forEach(dev => {
+        if (dev.status === "active") active++;
+        else if (dev.status === "slow") slow++;
+        else inactive++;
+
+        readings += dev.readings_last_window ?? 0;
+      });
+
+      document.getElementById("statusActive").innerText = `Active: ${active}`;
+      document.getElementById("statusSlow").innerText = `Slow: ${slow}`;
+      document.getElementById("statusInactive").innerText = `Inactive: ${inactive}`;
+      document.getElementById("statusTotalReadings").innerText = `Readings (last hour): ${readings}`;
     });
 }
 
@@ -132,10 +157,7 @@ function onMetricChange() {
 function onForecastChange() {
   const slider = document.getElementById("forecastSlider");
   currentForecastHour = Number(slider.value);
-
-  document.getElementById("forecastLabel").innerText =
-    `Forecast +${currentForecastHour}h`;
-
+  document.getElementById("forecastLabel").innerText = `Forecast +${currentForecastHour}h`;
   refreshMap();
 }
 
@@ -164,8 +186,8 @@ function refreshMap() {
     layer.setStyle({
       fillColor: color,
       fillOpacity: val != null ? 0.8 : 0,
-      color: "#333",
-      weight: 1.5,
+      color: "#444",
+      weight: 1,
       opacity: 0.2
     });
 
@@ -222,14 +244,14 @@ function tempToColor(t) {
 
 function pressureToColor(p) {
   if (typeof p !== "number") return "#00000000";
-  const minP = 990, maxP = 1020;
+  const minP = 980, maxP = 1020;
   const ratio = Math.min(Math.max((p - minP) / (maxP - minP), 0), 1);
   return `rgb(0,${Math.floor(255 * ratio)},${Math.floor(255 * (1 - ratio))})`;
 }
 
 
 // ------------------------------------------------------
-// LEGENDS
+// LEGEND SWITCHING
 // ------------------------------------------------------
 
 function updateLegend() {
@@ -247,12 +269,8 @@ function updateLegend() {
 
 function extractValue(info) {
   if (!info) return null;
-
-  if (currentMetric === "temp") {
-    return info.avg_temp ?? info.avg_temp_forecast;
-  } else {
-    return info.avg_pressure ?? info.avg_pressure_forecast;
-  }
+  if (currentMetric === "temp") return info.avg_temp ?? info.avg_temp_forecast;
+  return info.avg_pressure ?? info.avg_pressure_forecast;
 }
 
 function baseEmptyStyle() {

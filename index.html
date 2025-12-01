@@ -14,7 +14,6 @@
       height: 100%;
       width: 100%;
       overflow: hidden;
-      position: relative;
       font-family: Arial, sans-serif;
     }
 
@@ -40,8 +39,8 @@
 
     #controls label {
       font-weight: bold;
-      display: block;
       margin-bottom: 4px;
+      display: block;
     }
 
     #controls select,
@@ -52,6 +51,35 @@
 
     #forecastBlock {
       display: none;
+    }
+
+    /* Sensor status panel */
+    #sensorStatus {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      z-index: 1000;
+      background: white;
+      padding: 12px;
+      border-radius: 8px;
+      width: 220px;
+      box-shadow: 0 0 4px rgba(0,0,0,0.3);
+      font-size: 14px;
+    }
+
+    #sensorStatus h4 {
+      margin-top: 0;
+      margin-bottom: 8px;
+      font-size: 15px;
+    }
+
+    /* Legend bar styling */
+    .legend-bar {
+      width: 180px;
+      height: 12px;
+      border: 1px solid #444;
+      border-radius: 4px;
+      margin-bottom: 6px;
     }
   </style>
 </head>
@@ -79,6 +107,14 @@
   </div>
 </div>
 
+<div id="sensorStatus">
+  <h4>Sensor Status</h4>
+  <div id="statusActive">Active: 0</div>
+  <div id="statusSlow">Slow: 0</div>
+  <div id="statusInactive">Inactive: 0</div>
+  <div id="statusTotalReadings">Readings (last hour): 0</div>
+</div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -98,7 +134,6 @@
   firebase.initializeApp(firebaseConfig);
 </script>
 
-<!-- IMPORTANT: Defer ensures DOM is loaded before running JS -->
 <script defer src="map.js"></script>
 
 </body>
