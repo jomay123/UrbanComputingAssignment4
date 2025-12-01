@@ -129,7 +129,6 @@ function startSensorStatusListener() {
       });
 
       document.getElementById("statusActive").innerText = `Active: ${active}`;
-      document.getElementById("statusSlow").innerText = `Slow: ${slow}`;
       document.getElementById("statusInactive").innerText = `Inactive: ${inactive}`;
       document.getElementById("statusTotalReadings").innerText = `Readings (last hour): ${readings}`;
     });
