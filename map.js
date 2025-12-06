@@ -66,7 +66,7 @@ pressureLegend.onAdd = function () {
   div.innerHTML = `
     <b>Pressure (hPa)</b><br>
     ${makeLegendBar("linear-gradient(to right, blue, green)")}
-    <span>Low (980hPa)</span> → <span>High (1020hPa)</span>
+    <span>Low (960hPa)</span> → <span>High (1020hPa)</span>
   `;
   return div;
 };
@@ -243,7 +243,7 @@ function tempToColor(t) {
 
 function pressureToColor(p) {
   if (typeof p !== "number") return "#00000000";
-  const minP = 980, maxP = 1020;
+  const minP = 960, maxP = 1020;
   const ratio = Math.min(Math.max((p - minP) / (maxP - minP), 0), 1);
   return `rgb(0,${Math.floor(255 * ratio)},${Math.floor(255 * (1 - ratio))})`;
 }
